@@ -419,22 +419,12 @@ class TestToolSchemas:
         out = ERPPostOutput(success=False, reason="ERP system unavailable")
         assert out.erp_reference_id is None
 
-    def test_tool_logic_raises_not_implemented(self):
-        """Confirm all tools are stubs on Day 1 — logic added Day 2."""
-        from app.tools import (
-            validate_vendor, validate_po, check_duplicate,
-            request_approval, post_to_erp, get_workflow_summary,
-            ValidateVendorInput, ValidatePOInput, CheckDuplicateInput,
-            ApprovalInput, ERPPostInput, WorkflowSummaryInput,
+    @pytest.mark.skip(
+        reason=(
+            "Day 1 stub test — tools are fully implemented in Phase 2. "
+            "Helper was also renamed from get_workflow_summary → get_invoice_summary."
         )
-        stubs = [
-            (validate_vendor, ValidateVendorInput(invoice_id="X", vendor_name="Y", vendor_gstin="29ABCDE1234F1Z5")),
-            (validate_po,     ValidatePOInput(invoice_id="X", po_number="PO-1")),
-            (check_duplicate, CheckDuplicateInput(invoice_id="X")),
-            (request_approval, ApprovalInput(invoice_id="X", amount=1.0, reason="test")),
-            (post_to_erp,     ERPPostInput(invoice_id="X", vendor_gstin="29ABCDE1234F1Z5", po_number="PO-1", amount=1.0)),
-            (get_workflow_summary, WorkflowSummaryInput(invoice_id="X")),
-        ]
-        for fn, inp in stubs:
-            with pytest.raises(NotImplementedError):
-                fn(inp)
+    )
+    def test_tool_logic_raises_not_implemented(self):
+        """Skipped: tools now have real implementations (Phase 2 complete)."""
+        pass
