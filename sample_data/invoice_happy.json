@@ -1,0 +1,21 @@
+{
+  "invoice_id": "INV-2026-001",
+  "vendor_name": "Tech Supplies Ltd",
+  "vendor_gstin": "29ABCDE1234F1Z5",
+  "po_number": "PO-12345",
+  "invoice_amount": 45000,
+  "currency": "INR",
+  "invoice_date": "2026-03-08",
+  "line_items": [
+    {
+      "description": "Wireless Keyboards",
+      "quantity": 5,
+      "unit_price": 4500
+    },
+    {
+      "description": "USB Hubs",
+      "quantity": 10,
+      "unit_price": 2250
+    }
+  ]
+}

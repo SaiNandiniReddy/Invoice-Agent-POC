@@ -1,0 +1,4 @@
+# output/.gitkeep
+# This file keeps the output/ directory tracked in Git.
+# Actual output files (JSON logs, traces) are generated at runtime
+# and should be committed selectively or ignored via .gitignore.

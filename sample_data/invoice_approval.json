@@ -1,0 +1,16 @@
+{
+  "invoice_id": "INV-2026-002",
+  "vendor_name": "Tech Supplies Ltd",
+  "vendor_gstin": "29ABCDE1234F1Z5",
+  "po_number": "PO-45678",
+  "invoice_amount": 125000,
+  "currency": "INR",
+  "invoice_date": "2026-03-09",
+  "line_items": [
+    {
+      "description": "Laptops",
+      "quantity": 5,
+      "unit_price": 25000
+    }
+  ]
+}

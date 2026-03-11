@@ -1,0 +1,16 @@
+{
+  "invoice_id": "INV-2026-003",
+  "vendor_name": "Fake Vendor Corp",
+  "vendor_gstin": "99ZZZZZ9999Z9Z9",
+  "po_number": "PO-00000",
+  "invoice_amount": 80000,
+  "currency": "INR",
+  "invoice_date": "2026-03-10",
+  "line_items": [
+    {
+      "description": "Unknown Parts",
+      "quantity": 8,
+      "unit_price": 10000
+    }
+  ]
+}
