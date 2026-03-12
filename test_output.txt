@@ -1,0 +1,683 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.14.3, pytest-9.0.2, pluggy-1.6.0 -- C:\invoice-agent-poc\Invoice-Agent-POC\venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\invoice-agent-poc\Invoice-Agent-POC
+plugins: anyio-4.12.1, asyncio-1.3.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 19 items
+
+tests/test_phase4.py::TestRequestApprovalInterrupt::test_approval_path_returns_approved FAILED [  5%]
+tests/test_phase4.py::TestRequestApprovalInterrupt::test_rejection_path_returns_rejected FAILED [ 10%]
+tests/test_phase4.py::TestRequestApprovalInterrupt::test_approval_case_insensitive FAILED [ 15%]
+tests/test_phase4.py::TestRequestApprovalInterrupt::test_unknown_input_defaults_to_rejected FAILED [ 21%]
+tests/test_phase4.py::TestRequestApprovalInterrupt::test_interrupt_payload_has_required_fields FAILED [ 26%]
+tests/test_phase4.py::TestERPPostGuardrailLogic::test_guardrail_blocks_without_validation FAILED [ 31%]
+tests/test_phase4.py::TestERPPostGuardrailLogic::test_guardrail_allows_after_validation FAILED [ 36%]
+tests/test_phase4.py::TestERPPostGuardrailLogic::test_guardrail_blocks_when_only_vendor_validated FAILED [ 42%]
+tests/test_phase4.py::TestERPPostGuardrailLogic::test_guardrail_blocks_when_only_po_validated FAILED [ 47%]
+tests/test_phase4.py::TestHandleInterruptions::test_handle_interruptions_approve PASSED [ 52%]
+tests/test_phase4.py::TestHandleInterruptions::test_handle_interruptions_reject PASSED [ 57%]
+tests/test_phase4.py::TestHandleInterruptions::test_handle_multiple_interruptions PASSED [ 63%]
+tests/test_phase4.py::TestApprovalWorkflowIntegration::test_full_approval_path FAILED [ 68%]
+tests/test_phase4.py::TestApprovalWorkflowIntegration::test_full_rejection_path FAILED [ 73%]
+tests/test_phase4.py::TestFailurePathScenarios::test_erp_post_blocked_when_no_prior_validation PASSED [ 78%]
+tests/test_phase4.py::TestFailurePathScenarios::test_post_to_erp_fails_with_empty_inputs PASSED [ 84%]
+tests/test_phase4.py::TestFailurePathScenarios::test_invalid_vendor_blocks_workflow PASSED [ 89%]
+tests/test_phase4.py::TestFailurePathScenarios::test_invalid_po_blocks_workflow PASSED [ 94%]
+tests/test_phase4.py::TestFailurePathScenarios::test_duplicate_invoice_rejected PASSED [100%]
+
+================================== FAILURES ===================================
+______ TestRequestApprovalInterrupt.test_approval_path_returns_approved _______
+
+self = <tests.test_phase4.TestRequestApprovalInterrupt object at 0x000001F511D77ED0>
+
+    def test_approval_path_returns_approved(self):
+        """
+        GIVEN: agents.interrupt() is mocked to return "approved"
+        WHEN:  request_approval() is called
+        THEN:  ApprovalOutput.approval_status == "approved"
+               ApprovalOutput.approver        == "human-reviewer"
+               workflow_store is updated with approval_status="approved"
+        """
+>       with patch("app.tools.interrupt", return_value="approved") as mock_interrupt:
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_phase4.py:145: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x000001F511E64C20>
+
+    def __enter__(self):
+        """Perform the patch."""
+        if self.is_started:
+            raise RuntimeError("Patch is already started")
+    
+        new, spec, spec_set = self.new, self.spec, self.spec_set
+        autospec, kwargs = self.autospec, self.kwargs
+        new_callable = self.new_callable
+        self.target = self.getter()
+    
+        # normalise False to None
+        if spec is False:
+            spec = None
+        if spec_set is False:
+            spec_set = None
+        if autospec is False:
+            autospec = None
+    
+        if spec is not None and autospec is not None:
+            raise TypeError("Can't specify spec and autospec")
+        if ((spec is not None or autospec is not None) and
+            spec_set not in (True, None)):
+            raise TypeError("Can't provide explicit spec_set *and* spec or autospec")
+    
+>       original, local = self.get_original()
+                          ^^^^^^^^^^^^^^^^^^^
+
+C:\Program Files\Python314\Lib\unittest\mock.py:1503: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x000001F511E64C20>
+
+    def get_original(self):
+        target = self.getter()
+        name = self.attribute
+    
+        original = DEFAULT
+        local = False
+    
+        try:
+            original = target.__dict__[name]
+        except (AttributeError, KeyError):
+            original = getattr(target, name, DEFAULT)
+        else:
+            local = True
+    
+        if name in _builtins and isinstance(target, ModuleType):
+            self.create = True
+    
+        if not self.create and original is DEFAULT:
+>           raise AttributeError(
+                "%s does not have the attribute %r" % (target, name)
+            )
+E           AttributeError: <module 'app.tools' from 'C:\\invoice-agent-poc\\Invoice-Agent-POC\\app\\tools.py'> does not have the attribute 'interrupt'
+
+C:\Program Files\Python314\Lib\unittest\mock.py:1473: AttributeError
+______ TestRequestApprovalInterrupt.test_rejection_path_returns_rejected ______
+
+self = <tests.test_phase4.TestRequestApprovalInterrupt object at 0x000001F511E41090>
+
+    def test_rejection_path_returns_rejected(self):
+        """
+        GIVEN: agents.interrupt() is mocked to return "rejected"
+        WHEN:  request_approval() is called
+        THEN:  ApprovalOutput.approval_status == "rejected"
+               workflow_store is updated with approval_status="rejected"
+        """
+>       with patch("app.tools.interrupt", return_value="rejected"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_phase4.py:177: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x000001F511E42E90>
+
+    def __enter__(self):
+        """Perform the patch."""
+        if self.is_started:
+            raise RuntimeError("Patch is already started")
+    
+        new, spec, spec_set = self.new, self.spec, self.spec_set
+        autospec, kwargs = self.autospec, self.kwargs
+        new_callable = self.new_callable
+        self.target = self.getter()
+    
+        # normalise False to None
+        if spec is False:
+            spec = None
+        if spec_set is False:
+            spec_set = None
+        if autospec is False:
+            autospec = None
+    
+        if spec is not None and autospec is not None:
+            raise TypeError("Can't specify spec and autospec")
+        if ((spec is not None or autospec is not None) and
+            spec_set not in (True, None)):
+            raise TypeError("Can't provide explicit spec_set *and* spec or autospec")
+    
+>       original, local = self.get_original()
+                          ^^^^^^^^^^^^^^^^^^^
+
+C:\Program Files\Python314\Lib\unittest\mock.py:1503: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x000001F511E42E90>
+
+    def get_original(self):
+        target = self.getter()
+        name = self.attribute
+    
+        original = DEFAULT
+        local = False
+    
+        try:
+            original = target.__dict__[name]
+        except (AttributeError, KeyError):
+            original = getattr(target, name, DEFAULT)
+        else:
+            local = True
+    
+        if name in _builtins and isinstance(target, ModuleType):
+            self.create = True
+    
+        if not self.create and original is DEFAULT:
+>           raise AttributeError(
+                "%s does not have the attribute %r" % (target, name)
+            )
+E           AttributeError: <module 'app.tools' from 'C:\\invoice-agent-poc\\Invoice-Agent-POC\\app\\tools.py'> does not have the attribute 'interrupt'
+
+C:\Program Files\Python314\Lib\unittest\mock.py:1473: AttributeError
+_________ TestRequestApprovalInterrupt.test_approval_case_insensitive _________
+
+self = <tests.test_phase4.TestRequestApprovalInterrupt object at 0x000001F511E78510>
+
+    def test_approval_case_insensitive(self):
+        """
+        Human might type ' Approved ' or 'APPROVED' ù the tool should
+        normalise input with .strip().lower() before comparing.
+        """
+>       with patch("app.tools.interrupt", return_value="  Approved  "):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_phase4.py:194: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x000001F511E43250>
+
+    def __enter__(self):
+        """Perform the patch."""
+        if self.is_started:
+            raise RuntimeError("Patch is already started")
+    
+        new, spec, spec_set = self.new, self.spec, self.spec_set
+        autospec, kwargs = self.autospec, self.kwargs
+        new_callable = self.new_callable
+        self.target = self.getter()
+    
+        # normalise False to None
+        if spec is False:
+            spec = None
+        if spec_set is False:
+            spec_set = None
+        if autospec is False:
+            autospec = None
+    
+        if spec is not None and autospec is not None:
+            raise TypeError("Can't specify spec and autospec")
+        if ((spec is not None or autospec is not None) and
+            spec_set not in (True, None)):
+            raise TypeError("Can't provide explicit spec_set *and* spec or autospec")
+    
+>       original, local = self.get_original()
+                          ^^^^^^^^^^^^^^^^^^^
+
+C:\Program Files\Python314\Lib\unittest\mock.py:1503: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x000001F511E43250>
+
+    def get_original(self):
+        target = self.getter()
+        name = self.attribute
+    
+        original = DEFAULT
+        local = False
+    
+        try:
+            original = target.__dict__[name]
+        except (AttributeError, KeyError):
+            original = getattr(target, name, DEFAULT)
+        else:
+            local = True
+    
+        if name in _builtins and isinstance(target, ModuleType):
+            self.create = True
+    
+        if not self.create and original is DEFAULT:
+>           raise AttributeError(
+                "%s does not have the attribute %r" % (target, name)
+            )
+E           AttributeError: <module 'app.tools' from 'C:\\invoice-agent-poc\\Invoice-Agent-POC\\app\\tools.py'> does not have the attribute 'interrupt'
+
+C:\Program Files\Python314\Lib\unittest\mock.py:1473: AttributeError
+____ TestRequestApprovalInterrupt.test_unknown_input_defaults_to_rejected _____
+
+self = <tests.test_phase4.TestRequestApprovalInterrupt object at 0x000001F511E78770>
+
+    def test_unknown_input_defaults_to_rejected(self):
+        """
+        If the human types something unexpected (e.g. "yes", "ok"),
+        the tool must safely default to rejected rather than crashing.
+        """
+>       with patch("app.tools.interrupt", return_value="maybe"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_phase4.py:205: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x000001F511E79BA0>
+
+    def __enter__(self):
+        """Perform the patch."""
+        if self.is_started:
+            raise RuntimeError("Patch is already started")
+    
+        new, spec, spec_set = self.new, self.spec, self.spec_set
+        autospec, kwargs = self.autospec, self.kwargs
+        new_callable = self.new_callable
+        self.target = self.getter()
+    
+        # normalise False to None
+        if spec is False:
+            spec = None
+        if spec_set is False:
+            spec_set = None
+        if autospec is False:
+            autospec = None
+    
+        if spec is not None and autospec is not None:
+            raise TypeError("Can't specify spec and autospec")
+        if ((spec is not None or autospec is not None) and
+            spec_set not in (True, None)):
+            raise TypeError("Can't provide explicit spec_set *and* spec or autospec")
+    
+>       original, local = self.get_original()
+                          ^^^^^^^^^^^^^^^^^^^
+
+C:\Program Files\Python314\Lib\unittest\mock.py:1503: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x000001F511E79BA0>
+
+    def get_original(self):
+        target = self.getter()
+        name = self.attribute
+    
+        original = DEFAULT
+        local = False
+    
+        try:
+            original = target.__dict__[name]
+        except (AttributeError, KeyError):
+            original = getattr(target, name, DEFAULT)
+        else:
+            local = True
+    
+        if name in _builtins and isinstance(target, ModuleType):
+            self.create = True
+    
+        if not self.create and original is DEFAULT:
+>           raise AttributeError(
+                "%s does not have the attribute %r" % (target, name)
+            )
+E           AttributeError: <module 'app.tools' from 'C:\\invoice-agent-poc\\Invoice-Agent-POC\\app\\tools.py'> does not have the attribute 'interrupt'
+
+C:\Program Files\Python314\Lib\unittest\mock.py:1473: AttributeError
+___ TestRequestApprovalInterrupt.test_interrupt_payload_has_required_fields ___
+
+self = <tests.test_phase4.TestRequestApprovalInterrupt object at 0x000001F511D87890>
+
+    def test_interrupt_payload_has_required_fields(self):
+        """
+        The interrupt payload must contain invoice_id, amount, and reason
+        so the human reviewer has all the context they need to decide.
+        """
+        captured_payload = {}
+    
+        def fake_interrupt(payload):
+            captured_payload.update(payload)
+            return "rejected"
+    
+>       with patch("app.tools.interrupt", side_effect=fake_interrupt):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_phase4.py:224: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x000001F511E7A060>
+
+    def __enter__(self):
+        """Perform the patch."""
+        if self.is_started:
+            raise RuntimeError("Patch is already started")
+    
+        new, spec, spec_set = self.new, self.spec, self.spec_set
+        autospec, kwargs = self.autospec, self.kwargs
+        new_callable = self.new_callable
+        self.target = self.getter()
+    
+        # normalise False to None
+        if spec is False:
+            spec = None
+        if spec_set is False:
+            spec_set = None
+        if autospec is False:
+            autospec = None
+    
+        if spec is not None and autospec is not None:
+            raise TypeError("Can't specify spec and autospec")
+        if ((spec is not None or autospec is not None) and
+            spec_set not in (True, None)):
+            raise TypeError("Can't provide explicit spec_set *and* spec or autospec")
+    
+>       original, local = self.get_original()
+                          ^^^^^^^^^^^^^^^^^^^
+
+C:\Program Files\Python314\Lib\unittest\mock.py:1503: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x000001F511E7A060>
+
+    def get_original(self):
+        target = self.getter()
+        name = self.attribute
+    
+        original = DEFAULT
+        local = False
+    
+        try:
+            original = target.__dict__[name]
+        except (AttributeError, KeyError):
+            original = getattr(target, name, DEFAULT)
+        else:
+            local = True
+    
+        if name in _builtins and isinstance(target, ModuleType):
+            self.create = True
+    
+        if not self.create and original is DEFAULT:
+>           raise AttributeError(
+                "%s does not have the attribute %r" % (target, name)
+            )
+E           AttributeError: <module 'app.tools' from 'C:\\invoice-agent-poc\\Invoice-Agent-POC\\app\\tools.py'> does not have the attribute 'interrupt'
+
+C:\Program Files\Python314\Lib\unittest\mock.py:1473: AttributeError
+_____ TestERPPostGuardrailLogic.test_guardrail_blocks_without_validation ______
+
+self = <tests.test_phase4.TestERPPostGuardrailLogic object at 0x000001F511E40CD0>
+
+    @pytest.mark.asyncio
+    async def test_guardrail_blocks_without_validation(self):
+        """
+        GIVEN: workflow_store is empty (no validations have run)
+        WHEN:  erp_post_guardrail is called
+        THEN:  tripwire_triggered=True (ERP post is BLOCKED)
+        """
+        from app.guardrails import erp_post_guardrail, ERPGuardrailOutput
+    
+        # Build mock context/agent (the guardrail receives these from the SDK)
+        mock_ctx   = MagicMock()
+        mock_agent = MagicMock()
+    
+        # workflow_store is empty ù no validations have been run
+>       result = await erp_post_guardrail(mock_ctx, mock_agent, f"invoice_id={self.INVOICE_ID}")
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'InputGuardrail' object is not callable
+
+tests\test_phase4.py:268: TypeError
+______ TestERPPostGuardrailLogic.test_guardrail_allows_after_validation _______
+
+self = <tests.test_phase4.TestERPPostGuardrailLogic object at 0x000001F511E41D10>
+
+    @pytest.mark.asyncio
+    async def test_guardrail_allows_after_validation(self):
+        """
+        GIVEN: workflow_store has vendor_validated=True AND po_validated=True
+        WHEN:  erp_post_guardrail is called
+        THEN:  tripwire_triggered=False (ERP post is ALLOWED)
+        """
+        from app.guardrails import erp_post_guardrail, ERPGuardrailOutput
+    
+        # Simulate that validation tools have already run
+        run_happy_validations(self.INVOICE_ID)
+    
+        mock_ctx   = MagicMock()
+        mock_agent = MagicMock()
+    
+>       result = await erp_post_guardrail(mock_ctx, mock_agent, f"invoice_id={self.INVOICE_ID}")
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'InputGuardrail' object is not callable
+
+tests\test_phase4.py:292: TypeError
+_ TestERPPostGuardrailLogic.test_guardrail_blocks_when_only_vendor_validated __
+
+self = <tests.test_phase4.TestERPPostGuardrailLogic object at 0x000001F511E788A0>
+
+    @pytest.mark.asyncio
+    async def test_guardrail_blocks_when_only_vendor_validated(self):
+        """
+        GIVEN: vendor_validated=True but po_validated=False
+        WHEN:  erp_post_guardrail is called
+        THEN:  tripwire_triggered=True (PO validation is missing \u2192 BLOCKED)
+        """
+        from app.guardrails import erp_post_guardrail
+    
+        # Manually set only vendor flag
+        workflow_store[self.INVOICE_ID] = {"vendor_validated": True}
+    
+        mock_ctx   = MagicMock()
+        mock_agent = MagicMock()
+    
+>       result = await erp_post_guardrail(mock_ctx, mock_agent, f"invoice_id={self.INVOICE_ID}")
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'InputGuardrail' object is not callable
+
+tests\test_phase4.py:316: TypeError
+___ TestERPPostGuardrailLogic.test_guardrail_blocks_when_only_po_validated ____
+
+self = <tests.test_phase4.TestERPPostGuardrailLogic object at 0x000001F511E789D0>
+
+    @pytest.mark.asyncio
+    async def test_guardrail_blocks_when_only_po_validated(self):
+        """
+        GIVEN: po_validated=True but vendor_validated=False
+        WHEN:  erp_post_guardrail is called
+        THEN:  tripwire_triggered=True (vendor validation is missing \u2192 BLOCKED)
+        """
+        from app.guardrails import erp_post_guardrail
+    
+        # Manually set only PO flag
+        workflow_store[self.INVOICE_ID] = {"po_validated": True}
+    
+        mock_ctx   = MagicMock()
+        mock_agent = MagicMock()
+    
+>       result = await erp_post_guardrail(mock_ctx, mock_agent, f"invoice_id={self.INVOICE_ID}")
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: 'InputGuardrail' object is not callable
+
+tests\test_phase4.py:341: TypeError
+___________ TestApprovalWorkflowIntegration.test_full_approval_path ___________
+
+self = <tests.test_phase4.TestApprovalWorkflowIntegration object at 0x000001F511E42990>
+
+    def test_full_approval_path(self):
+        """
+        GIVEN: A high-value invoice that requires human approval
+        WHEN:  All tools run in sequence and human approves
+        THEN:
+          - vendor_validated=True in workflow_store
+          - po_validated=True in workflow_store
+          - approval_status="approved" in workflow_store
+          - post_to_erp succeeds and returns an ERP reference ID
+        """
+        from app.tools import check_duplicate, CheckDuplicateInput
+    
+        # Step 1 + 2: Run validations (also satisfies the guardrail)
+        run_happy_validations(self.INVOICE_ID)
+    
+        # Step 3: Duplicate check
+        dup_result = check_duplicate(CheckDuplicateInput(invoice_id=self.INVOICE_ID))
+        assert dup_result.is_duplicate is False
+    
+        # Step 4: Request approval ù mock interrupt to simulate human saying "approved"
+>       with patch("app.tools.interrupt", return_value="approved"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_phase4.py:465: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x000001F515167C50>
+
+    def __enter__(self):
+        """Perform the patch."""
+        if self.is_started:
+            raise RuntimeError("Patch is already started")
+    
+        new, spec, spec_set = self.new, self.spec, self.spec_set
+        autospec, kwargs = self.autospec, self.kwargs
+        new_callable = self.new_callable
+        self.target = self.getter()
+    
+        # normalise False to None
+        if spec is False:
+            spec = None
+        if spec_set is False:
+            spec_set = None
+        if autospec is False:
+            autospec = None
+    
+        if spec is not None and autospec is not None:
+            raise TypeError("Can't specify spec and autospec")
+        if ((spec is not None or autospec is not None) and
+            spec_set not in (True, None)):
+            raise TypeError("Can't provide explicit spec_set *and* spec or autospec")
+    
+>       original, local = self.get_original()
+                          ^^^^^^^^^^^^^^^^^^^
+
+C:\Program Files\Python314\Lib\unittest\mock.py:1503: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x000001F515167C50>
+
+    def get_original(self):
+        target = self.getter()
+        name = self.attribute
+    
+        original = DEFAULT
+        local = False
+    
+        try:
+            original = target.__dict__[name]
+        except (AttributeError, KeyError):
+            original = getattr(target, name, DEFAULT)
+        else:
+            local = True
+    
+        if name in _builtins and isinstance(target, ModuleType):
+            self.create = True
+    
+        if not self.create and original is DEFAULT:
+>           raise AttributeError(
+                "%s does not have the attribute %r" % (target, name)
+            )
+E           AttributeError: <module 'app.tools' from 'C:\\invoice-agent-poc\\Invoice-Agent-POC\\app\\tools.py'> does not have the attribute 'interrupt'
+
+C:\Program Files\Python314\Lib\unittest\mock.py:1473: AttributeError
+__________ TestApprovalWorkflowIntegration.test_full_rejection_path ___________
+
+self = <tests.test_phase4.TestApprovalWorkflowIntegration object at 0x000001F511E42AD0>
+
+    def test_full_rejection_path(self):
+        """
+        GIVEN: A high-value invoice that requires human approval
+        WHEN:  All tools run in sequence and human REJECTS
+        THEN:
+          - approval_status="rejected" in workflow_store
+          - post_to_erp is NOT called (agent would stop after rejection)
+    
+        NOTE: This tests only the tool-level rejection ù
+              the agent loop in main.py would then return next_action="rejected".
+        """
+        run_happy_validations(self.INVOICE_ID)
+    
+        # Request approval ù mock interrupt to simulate human saying "rejected"
+>       with patch("app.tools.interrupt", return_value="rejected"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_phase4.py:507: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x000001F515254B50>
+
+    def __enter__(self):
+        """Perform the patch."""
+        if self.is_started:
+            raise RuntimeError("Patch is already started")
+    
+        new, spec, spec_set = self.new, self.spec, self.spec_set
+        autospec, kwargs = self.autospec, self.kwargs
+        new_callable = self.new_callable
+        self.target = self.getter()
+    
+        # normalise False to None
+        if spec is False:
+            spec = None
+        if spec_set is False:
+            spec_set = None
+        if autospec is False:
+            autospec = None
+    
+        if spec is not None and autospec is not None:
+            raise TypeError("Can't specify spec and autospec")
+        if ((spec is not None or autospec is not None) and
+            spec_set not in (True, None)):
+            raise TypeError("Can't provide explicit spec_set *and* spec or autospec")
+    
+>       original, local = self.get_original()
+                          ^^^^^^^^^^^^^^^^^^^
+
+C:\Program Files\Python314\Lib\unittest\mock.py:1503: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <unittest.mock._patch object at 0x000001F515254B50>
+
+    def get_original(self):
+        target = self.getter()
+        name = self.attribute
+    
+        original = DEFAULT
+        local = False
+    
+        try:
+            original = target.__dict__[name]
+        except (AttributeError, KeyError):
+            original = getattr(target, name, DEFAULT)
+        else:
+            local = True
+    
+        if name in _builtins and isinstance(target, ModuleType):
+            self.create = True
+    
+        if not self.create and original is DEFAULT:
+>           raise AttributeError(
+                "%s does not have the attribute %r" % (target, name)
+            )
+E           AttributeError: <module 'app.tools' from 'C:\\invoice-agent-poc\\Invoice-Agent-POC\\app\\tools.py'> does not have the attribute 'interrupt'
+
+C:\Program Files\Python314\Lib\unittest\mock.py:1473: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/test_phase4.py::TestRequestApprovalInterrupt::test_approval_path_returns_approved
+FAILED tests/test_phase4.py::TestRequestApprovalInterrupt::test_rejection_path_returns_rejected
+FAILED tests/test_phase4.py::TestRequestApprovalInterrupt::test_approval_case_insensitive
+FAILED tests/test_phase4.py::TestRequestApprovalInterrupt::test_unknown_input_defaults_to_rejected
+FAILED tests/test_phase4.py::TestRequestApprovalInterrupt::test_interrupt_payload_has_required_fields
+FAILED tests/test_phase4.py::TestERPPostGuardrailLogic::test_guardrail_blocks_without_validation
+FAILED tests/test_phase4.py::TestERPPostGuardrailLogic::test_guardrail_allows_after_validation
+FAILED tests/test_phase4.py::TestERPPostGuardrailLogic::test_guardrail_blocks_when_only_vendor_validated
+FAILED tests/test_phase4.py::TestERPPostGuardrailLogic::test_guardrail_blocks_when_only_po_validated
+FAILED tests/test_phase4.py::TestApprovalWorkflowIntegration::test_full_approval_path
+FAILED tests/test_phase4.py::TestApprovalWorkflowIntegration::test_full_rejection_path
+======================== 11 failed, 8 passed in 2.67s =========================

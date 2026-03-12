@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from agents import Agent
 import app.config as config
+from app.guardrails import erp_post_guardrail  # Phase 4: ERP post safety guardrail
 from app.state import NextActionDecision
 from app.tools import (
     ApprovalInput,
@@ -188,4 +189,5 @@ invoice_agent = Agent(
     ],
     output_type=NextActionDecision,
     model=config.OPENAI_MODEL,
+    input_guardrails=[erp_post_guardrail],  # Phase 4: ERP post safety check
 )

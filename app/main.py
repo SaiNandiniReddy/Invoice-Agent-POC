@@ -1,16 +1,20 @@
 """
-app/main.py — CLI Entry Point with Agent Decision Loop (Phase 3).
+app/main.py — CLI Entry Point with HITL + Execution Tracing.
 
-Phase 3 adds:
-  - build_invoice_message()    : formats invoice data as agent input
-  - apply_decision_to_state()  : maps NextActionDecision → WorkflowState
-  - print_workflow_result()    : colour-coded terminal summary
-  - run() command updated      : calls Runner and drives the workflow
+Phase 4 (HITL):
+  - handle_interruptions()  : shows approval panel, collects human decision
+  - run_with_hitl()         : pause → human input → resume loop
+
+Phase 5 (Tracing):
+  - TraceCollector records every tool call with timestamps & duration
+  - sdk_trace() wraps each run in an OpenAI platform span
+  - Trace JSON is saved to output/<invoice_id>_trace.json after every run
+  - Rich trace summary table is printed at the end of each CLI run
 
 Usage:
-    python -m app.main --invoice sample_data/invoice_happy.json
-    python -m app.main --invoice sample_data/invoice_approval.json
-    python -m app.main --invoice sample_data/invoice_failure.json
+    python -m app.main run --invoice sample_data/invoice_happy.json
+    python -m app.main run --invoice sample_data/invoice_approval.json
+    python -m app.main run --invoice sample_data/invoice_failure.json
 """
 
 from __future__ import annotations
@@ -24,8 +28,10 @@ from pathlib import Path
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.prompt import Prompt
 from rich.table import Table
 
+import app.config as config
 from app.config import OUTPUT_DIR, OPENAI_API_KEY
 from app.state import (
     ApprovalStatus,
@@ -34,6 +40,7 @@ from app.state import (
     WorkflowState,
     WorkflowStatus,
 )
+from app.tracing import TraceCollector, sdk_trace, generate_trace_summary
 
 app = typer.Typer(help="Invoice Workflow Agent POC — CLI")
 console = Console()
@@ -212,6 +219,142 @@ def print_workflow_result(state: WorkflowState, decision: NextActionDecision) ->
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Phase 4 — Human-in-the-Loop: Handle Interruptions
+# ─────────────────────────────────────────────────────────────────────────────
+
+def handle_interruptions(pause_exc: "PauseForApproval") -> str:  # type: ignore[name-defined]
+    """
+    Display the approval request panel to the human reviewer and collect a decision.
+
+    Called when a PauseForApproval exception is caught in run_with_hitl().
+    This function:
+      1. Reads invoice_id, amount, and reason from the PauseForApproval exception.
+      2. Renders a clear Rich panel with all the invoice details.
+      3. Prompts the reviewer to type "approve" or "reject".
+      4. Returns "approved" or "rejected" — which main.py writes to workflow_store
+         before re-running the agent.
+
+    Parameters
+    ──────────
+    pause_exc : PauseForApproval — the exception raised by request_approval().
+
+    Returns
+    ───────
+    str — "approved" or "rejected" (the human's decision).
+    """
+    # Extract details from the exception object
+    invoice_id = getattr(pause_exc, "invoice_id", "UNKNOWN")
+    amount     = getattr(pause_exc, "amount", 0.0)
+    reason     = getattr(pause_exc, "reason", "No reason given")
+
+    # ── Display the approval request panel ───────────────────────────────
+    console.print(Panel(
+        f"[bold yellow]⏸  AGENT PAUSED — HUMAN APPROVAL REQUIRED[/bold yellow]\n\n"
+        f"[bold]Invoice ID:[/bold]  {invoice_id}\n"
+        f"[bold]Amount:[/bold]      ₹{amount:,.2f} INR\n"
+        f"[bold]Reason:[/bold]      {reason}\n\n"
+        "[dim]The invoice amount exceeds the ₹1,00,000 approval threshold.\n"
+        "A human reviewer must approve or reject before processing continues.[/dim]",
+        title="🔔 APPROVAL REQUEST",
+        border_style="yellow",
+    ))
+
+    # ── Collect the human decision ────────────────────────────────────────
+    # Ask once — any answer that isn't "approve" is treated as "rejected" (safe default)
+    raw = Prompt.ask(
+        "\n[bold yellow]Your decision[/bold yellow]",
+        choices=["approve", "reject"],
+        default="reject",
+    )
+    return "approved" if raw.strip().lower() == "approve" else "rejected"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 4 — Human-in-the-Loop: Run Agent with Interrupt Support
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def run_with_hitl(
+    agent,
+    message: str,
+    collector: TraceCollector | None = None,
+) -> NextActionDecision:
+    """
+    Run the invoice agent with HITL support and optional tracing.
+
+    Phase 5 update: accepts an optional TraceCollector so every agent
+    iteration is wrapped in an SDK trace span. The collector is populated
+    externally (by the run() command) and saved after this function returns.
+
+    HITL loop:
+      1. Run agent — catch PauseForApproval if raised
+      2. Show approval panel, collect human decision
+      3. Write decision to workflow_store
+      4. Re-run agent with updated message (resume path)
+      5. Repeat until no PauseForApproval is raised
+
+    Returns
+    ───────
+    NextActionDecision — the agent's final structured output.
+    """
+    from agents import Runner
+    from app.tools import workflow_store, PauseForApproval
+
+    current_input = message
+    iteration = 0
+    max_iterations = 10
+
+    while iteration < max_iterations:
+        iteration += 1
+        console.print(f"\n[dim]🔄 Agent run iteration {iteration}...[/dim]")
+
+        try:
+            trace_id = collector.trace_id if collector else "no-trace"
+            with sdk_trace("InvoiceWorkflow", trace_id):
+                result = await Runner.run(agent, current_input)
+
+        except PauseForApproval as exc:
+            # ── HITL pause — human approval needed ────────────────────────
+            console.print("[yellow]⏸  Agent paused — human approval required.[/yellow]")
+
+            if collector:
+                collector.record(
+                    tool_name="request_approval",
+                    input_data={"invoice_id": exc.invoice_id, "amount": exc.amount},
+                    output_data={"approval_status": "pending"},
+                    duration_ms=0,
+                    success=True,
+                )
+
+            decision = handle_interruptions(exc)
+            color = "green" if decision == "approved" else "red"
+            icon  = "✅" if decision == "approved" else "❌"
+            console.print(f"\n{icon} [bold {color}]Human decision: {decision.upper()}[/bold {color}]")
+
+            # Write decision into workflow_store (resume path)
+            workflow_store.setdefault(exc.invoice_id, {})["approval_status"] = decision
+
+            if decision == "approved":
+                current_input = (
+                    current_input
+                    + f"\n\nThe human reviewer has APPROVED invoice {exc.invoice_id}."
+                    " Proceed to post_to_erp."
+                )
+            else:
+                current_input = (
+                    current_input
+                    + f"\n\nThe human reviewer has REJECTED invoice {exc.invoice_id}."
+                    " Mark the invoice as rejected. Do NOT call post_to_erp."
+                )
+            continue
+
+        # ── No exception → agent completed ────────────────────────────────
+        console.print("[dim]✅ Agent completed.[/dim]")
+        return result.final_output
+
+    raise RuntimeError("Agent did not complete after maximum HITL iterations.")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # CLI Command
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -226,15 +369,15 @@ def run(
     """
     Process a single invoice through the workflow agent.
 
-    Phase 3 behaviour:
+    Phase 4 behaviour:
       1. Loads and validates the JSON into an Invoice model
       2. Builds a plain-text message for the agent
-      3. Runs the invoice_agent via Runner (handles tool calls internally)
+      3. Runs run_with_hitl() — handles tool calls AND approval interrupts
       4. Maps the final NextActionDecision to WorkflowState
       5. Saves result to output/<invoice_id>_result.json
       6. Prints a colour-coded summary
     """
-    console.rule("[bold blue]Invoice Workflow Agent POC — Phase 3[/]")
+    console.rule("[bold blue]Invoice Workflow Agent POC — Phase 5 (Tracing + HITL)[/]")
 
     # ── Guard: check API key ──────────────────────────────────────────────────
     if not OPENAI_API_KEY:
@@ -249,33 +392,61 @@ def run(
     inv = load_invoice(invoice)
     print_invoice_summary(inv)
 
-    # ── Step 2: Initialise workflow state ─────────────────────────────────────
-    state = WorkflowState(invoice_id=inv.invoice_id, status=WorkflowStatus.IN_PROGRESS)
+    # ── Step 2: Initialise workflow state + trace collector ───────────────────
+    state     = WorkflowState(invoice_id=inv.invoice_id, status=WorkflowStatus.IN_PROGRESS)
+    scenario  = _infer_scenario(inv.invoice_amount)
+    collector = TraceCollector(invoice_id=inv.invoice_id, scenario=scenario)
+    console.print(f"[dim]📊 Tracing enabled — scenario: {scenario} | trace_id: {collector.trace_id}[/dim]\n")
 
-    # ── Step 3: Run the agent ─────────────────────────────────────────────────
-    console.print("\n[cyan]🤖 Running Invoice Agent ...[/]\n")
+    # ── Step 3: Run the agent (with HITL + tracing) ───────────────────────────
+    console.print("\n[cyan]🤖 Running Invoice Agent (Phase 5 — Tracing + HITL) ...[/]\n")
     message = build_invoice_message(inv)
 
     try:
-        from agents import Runner
         from app.agent import invoice_agent
-        result = asyncio.run(Runner.run(invoice_agent, message))
-        decision: NextActionDecision = result.final_output
+        decision: NextActionDecision = asyncio.run(
+            run_with_hitl(invoice_agent, message, collector=collector)
+        )
 
     except Exception as exc:
         console.print(f"[red]Agent error:[/] {exc}")
         state.escalate(reason=f"Agent error: {exc}")
         save_result(state)
+        trace_path = collector.save()
+        console.print(f"[dim]Trace saved to:[/] {trace_path}\n")
         raise typer.Exit(code=1)
 
     # ── Step 4: Apply decision to state ───────────────────────────────────────
     apply_decision_to_state(state, decision, inv)
 
-    # ── Step 5: Save & display ────────────────────────────────────────────────
-    out_path = save_result(state)
+    # ── Step 5: Save result + trace ───────────────────────────────────────────
+    out_path   = save_result(state)
+    trace_path = collector.save()
     print_workflow_result(state, decision)
-    console.print(f"\n[dim]Result saved to:[/] {out_path}\n")
+
+    # ── Step 6: Print trace summary ───────────────────────────────────────────
+    trace_data = collector.to_dict()
+    summary_text = generate_trace_summary(trace_data)
+    console.print(Panel(
+        summary_text,
+        title="📊 Execution Trace Summary",
+        border_style="dim cyan",
+    ))
+    console.print(f"\n[dim]Result saved to:[/] {out_path}")
+    console.print(f"[dim]Trace  saved to:[/] {trace_path}\n")
 
 
 if __name__ == "__main__":
     app()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Private Helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _infer_scenario(amount: float) -> str:
+    """Map invoice amount to a human-readable scenario tag for the trace."""
+    import app.config as _cfg
+    if amount >= _cfg.APPROVAL_THRESHOLD:
+        return "approval_path"
+    return "happy_path"
