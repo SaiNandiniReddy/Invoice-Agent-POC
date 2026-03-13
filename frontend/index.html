@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invoice Workflow Agent — POC Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Design Tokens ──────────────────────────────────────────────── */
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --surface2:  #21253a;
+      --border:    #2e3352;
+      --accent:    #6c63ff;
+      --accent-h:  #8b85ff;
+      --green:     #22c55e;
+      --red:       #ef4444;
+      --yellow:    #f59e0b;
+      --blue:      #3b82f6;
+      --text:      #e2e8f0;
+      --muted:     #8892b0;
+      --radius:    12px;
+      --shadow:    0 8px 32px rgba(0,0,0,.45);
+      --transition: .2s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* ── Reset & Base ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    .container { max-width: 900px; margin: 0 auto; }
+
+    /* ── Header ─────────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .logo {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, var(--accent), #ff63c3);
+      border-radius: 14px;
+      display: grid; place-items: center;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+      box-shadow: 0 4px 20px rgba(108,99,255,.4);
+    }
+    h1 { font-size: 1.5rem; font-weight: 700; }
+    h1 span { color: var(--accent); }
+    .subtitle { font-size: .875rem; color: var(--muted); margin-top: .25rem; }
+
+    /* ── Status pill ────────────────────────────────────────────────── */
+    #server-status {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      font-size: .8rem;
+      color: var(--muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: .35rem .9rem;
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--muted);
+      transition: background var(--transition);
+    }
+    .dot.online  { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .dot.offline { background: var(--red); }
+
+    /* ── Cards ──────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: var(--shadow);
+    }
+    .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    /* ── Preset buttons ─────────────────────────────────────────────── */
+    .presets {
+      display: flex;
+      gap: .75rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .preset-btn {
+      padding: .45rem 1rem;
+      border-radius: 8px;
+      font-size: .8rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      transition: background var(--transition), transform var(--transition);
+    }
+    .preset-btn:hover { background: var(--border); transform: translateY(-1px); }
+    .preset-btn.happy    { border-color: var(--green);  color: var(--green); }
+    .preset-btn.approval { border-color: var(--yellow); color: var(--yellow); }
+    .preset-btn.failure  { border-color: var(--red);    color: var(--red); }
+
+    /* ── Form ───────────────────────────────────────────────────────── */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+
+    .field { display: flex; flex-direction: column; gap: .4rem; }
+    .field.full { grid-column: 1 / -1; }
+
+    label { font-size: .8rem; font-weight: 500; color: var(--muted); }
+    input, select, textarea {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: .9rem;
+      font-family: inherit;
+      padding: .6rem .9rem;
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+    input:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(108,99,255,.15);
+    }
+    textarea { resize: vertical; min-height: 80px; }
+
+    /* ── Submit button ──────────────────────────────────────────────── */
+    .submit-btn {
+      width: 100%;
+      margin-top: 1.25rem;
+      padding: .75rem 1.5rem;
+      background: linear-gradient(135deg, var(--accent), #8b85ff);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity var(--transition), transform var(--transition), box-shadow var(--transition);
+      box-shadow: 0 4px 20px rgba(108,99,255,.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+    }
+    .submit-btn:hover:not(:disabled) { opacity: .9; transform: translateY(-1px); box-shadow: 0 8px 28px rgba(108,99,255,.45); }
+    .submit-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    /* ── Spinner ────────────────────────────────────────────────────── */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2.5px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Result panel ───────────────────────────────────────────────── */
+    #result-panel { display: none; }
+    #result-panel.visible { display: block; animation: fadeUp .35s ease; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .5rem 1.1rem;
+      border-radius: 999px;
+      font-size: .875rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+    .badge-completed       { background: rgba(34,197,94,.15);  color: var(--green);  border: 1px solid rgba(34,197,94,.3); }
+    .badge-rejected        { background: rgba(239,68,68,.15);  color: var(--red);    border: 1px solid rgba(239,68,68,.3); }
+    .badge-awaiting_approval { background: rgba(245,158,11,.15); color: var(--yellow); border: 1px solid rgba(245,158,11,.3); }
+    .badge-manual_review   { background: rgba(59,130,246,.15); color: var(--blue);   border: 1px solid rgba(59,130,246,.3); }
+    .badge-unknown         { background: rgba(136,146,176,.15);color: var(--muted);  border: 1px solid var(--border); }
+
+    .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+    @media (max-width: 600px) { .result-grid { grid-template-columns: 1fr; } }
+
+    .result-row {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .75rem 1rem;
+    }
+    .result-row .key   { font-size: .75rem; color: var(--muted); margin-bottom: .25rem; }
+    .result-row .value { font-size: .92rem; font-weight: 500; }
+    .confidence-bar {
+      height: 6px; border-radius: 3px;
+      background: var(--border);
+      margin-top: .35rem;
+      overflow: hidden;
+    }
+    .confidence-fill {
+      height: 100%; border-radius: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--green));
+      transition: width 1s ease;
+    }
+
+    /* ── Raw JSON viewer ────────────────────────────────────────────── */
+    .json-toggle {
+      background: none;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+      font-size: .82rem;
+      padding: .5rem 0;
+      display: block;
+      margin-top: .75rem;
+    }
+    pre {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      font-size: .8rem;
+      overflow-x: auto;
+      color: #a9b7d0;
+      display: none;
+      margin-top: .5rem;
+      max-height: 320px;
+    }
+    pre.shown { display: block; animation: fadeUp .2s ease; }
+
+    /* ── Error box ──────────────────────────────────────────────────── */
+    .error-box {
+      background: rgba(239,68,68,.12);
+      border: 1px solid rgba(239,68,68,.3);
+      border-radius: 8px;
+      padding: 1rem;
+      color: #fca5a5;
+      font-size: .875rem;
+      display: none;
+      margin-top: .75rem;
+    }
+    .error-box.shown { display: block; animation: fadeUp .2s ease; }
+
+    /* ── Endpoints reference ────────────────────────────────────────── */
+    .endpoint-list { list-style: none; }
+    .endpoint-list li {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      padding: .6rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: .85rem;
+    }
+    .endpoint-list li:last-child { border-bottom: none; }
+    .method {
+      font-size: .7rem; font-weight: 700;
+      padding: .2rem .55rem;
+      border-radius: 5px;
+      flex-shrink: 0;
+      font-family: monospace;
+    }
+    .method.post { background: rgba(108,99,255,.2); color: var(--accent-h); }
+    .method.get  { background: rgba(34,197,94,.15); color: var(--green); }
+    .ep-path { font-family: monospace; color: var(--text); }
+    .ep-desc { color: var(--muted); margin-left: auto; font-size: .78rem; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ── Header ───────────────────────────────────────────────────── -->
+  <header>
+    <div class="logo">🧾</div>
+    <div>
+      <h1>Invoice Workflow <span>Agent</span></h1>
+      <p class="subtitle">POC Dashboard — FastAPI + OpenAI Agents SDK</p>
+    </div>
+    <div id="server-status">
+      <div class="dot" id="status-dot"></div>
+      <span id="status-text">Checking …</span>
+    </div>
+  </header>
+
+  <!-- ── Submit Form ───────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">📋 Submit Invoice for Processing</div>
+
+    <!-- Preset quick-load buttons -->
+    <div class="presets">
+      <span style="font-size:.8rem;color:var(--muted);align-self:center;">Quick-load:</span>
+      <button class="preset-btn happy"    onclick="loadPreset(0)">✅ Happy Path (₹45k)</button>
+      <button class="preset-btn approval" onclick="loadPreset(1)">⏸ Approval Path (₹1.25L)</button>
+      <button class="preset-btn failure"  onclick="loadPreset(2)">❌ Failure Path (₹80k)</button>
+    </div>
+
+    <form id="invoice-form">
+      <div class="form-grid">
+        <div class="field">
+          <label for="invoice_id">Invoice ID</label>
+          <input id="invoice_id" name="invoice_id" type="text" placeholder="INV-2026-001" required />
+        </div>
+        <div class="field">
+          <label for="invoice_date">Invoice Date</label>
+          <input id="invoice_date" name="invoice_date" type="date" required />
+        </div>
+        <div class="field">
+          <label for="vendor_name">Vendor Name</label>
+          <input id="vendor_name" name="vendor_name" type="text" placeholder="Tech Supplies Ltd" required />
+        </div>
+        <div class="field">
+          <label for="vendor_gstin">Vendor GSTIN</label>
+          <input id="vendor_gstin" name="vendor_gstin" type="text" placeholder="29ABCDE1234F1Z5" required />
+        </div>
+        <div class="field">
+          <label for="po_number">PO Number</label>
+          <input id="po_number" name="po_number" type="text" placeholder="PO-12345" required />
+        </div>
+        <div class="field">
+          <label for="invoice_amount">Invoice Amount (₹)</label>
+          <input id="invoice_amount" name="invoice_amount" type="number" min="1" placeholder="45000" required />
+        </div>
+        <div class="field">
+          <label for="currency">Currency</label>
+          <select id="currency" name="currency">
+            <option value="INR" selected>INR</option>
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </div>
+        <div class="field full">
+          <label for="line_items">
+            Line Items (JSON array — optional)
+          </label>
+          <textarea id="line_items" name="line_items"
+            placeholder='[{"description":"Wireless Keyboards","quantity":5,"unit_price":4500}]'></textarea>
+        </div>
+      </div>
+
+      <div class="error-box" id="form-error"></div>
+
+      <button type="submit" class="submit-btn" id="submit-btn">
+        <span id="btn-label">🚀 Process Invoice</span>
+        <div class="spinner" id="btn-spinner" style="display:none"></div>
+      </button>
+    </form>
+  </div>
+
+  <!-- ── Result Panel ──────────────────────────────────────────────── -->
+  <div class="card" id="result-panel">
+    <div class="card-title">📊 Workflow Result</div>
+
+    <div id="status-badge-wrap"></div>
+
+    <div class="result-grid" id="result-grid"></div>
+
+    <button class="json-toggle" onclick="toggleJson()">{ } Show raw JSON response</button>
+    <pre id="raw-json"></pre>
+  </div>
+
+  <!-- ── API Endpoints Reference ───────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">🔌 API Endpoints Reference</div>
+    <ul class="endpoint-list">
+      <li>
+        <span class="method get">GET</span>
+        <span class="ep-path">/health</span>
+        <span class="ep-desc">Server liveness check</span>
+      </li>
+      <li>
+        <span class="method post">POST</span>
+        <span class="ep-path">/process-invoice</span>
+        <span class="ep-desc">Submit invoice → get workflow result</span>
+      </li>
+      <li>
+        <span class="method get">GET</span>
+        <span class="ep-path">/result/{invoice_id}</span>
+        <span class="ep-desc">Get saved result JSON</span>
+      </li>
+      <li>
+        <span class="method get">GET</span>
+        <span class="ep-path">/trace/{invoice_id}</span>
+        <span class="ep-desc">Get execution trace JSON</span>
+      </li>
+      <li>
+        <span class="method get">GET</span>
+        <span class="ep-path">/invoices/samples</span>
+        <span class="ep-desc">Return 3 sample invoice payloads</span>
+      </li>
+      <li>
+        <span class="method get">GET</span>
+        <span class="ep-path">/docs</span>
+        <span class="ep-desc">Interactive Swagger UI (FastAPI auto-generated)</span>
+      </li>
+    </ul>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+  // ── Config ────────────────────────────────────────────────────────
+  // Change this if uvicorn runs on a different port.
+  const API_BASE = "http://localhost:8000";
+
+  // ── Cached sample invoices loaded from API ────────────────────────
+  let samples = [];
+
+  // ── On page load: check server + load presets ─────────────────────
+  window.addEventListener("DOMContentLoaded", async () => {
+    await checkHealth();
+    await fetchSamples();
+    // Set today as default invoice date
+    document.getElementById("invoice_date").value = new Date().toISOString().slice(0,10);
+  });
+
+  // ── Health check ──────────────────────────────────────────────────
+  async function checkHealth() {
+    const dot  = document.getElementById("status-dot");
+    const text = document.getElementById("status-text");
+    try {
+      const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        dot.classList.add("online");
+        text.textContent = "API Online";
+      } else {
+        throw new Error("non-200");
+      }
+    } catch {
+      dot.classList.add("offline");
+      text.textContent = "API Offline";
+    }
+  }
+
+  // ── Load sample invoices from backend ─────────────────────────────
+  async function fetchSamples() {
+    try {
+      const res = await fetch(`${API_BASE}/invoices/samples`);
+      if (res.ok) samples = await res.json();
+    } catch {
+      // silently ignore — presets just won't auto-fill
+    }
+  }
+
+  // ── Populate form with a sample invoice ───────────────────────────
+  function loadPreset(index) {
+    if (!samples[index]) {
+      showFormError("Sample data not loaded yet. Is the API running?");
+      return;
+    }
+    const inv = samples[index];
+    document.getElementById("invoice_id").value      = inv.invoice_id    || "";
+    document.getElementById("vendor_name").value     = inv.vendor_name   || "";
+    document.getElementById("vendor_gstin").value    = inv.vendor_gstin  || "";
+    document.getElementById("po_number").value       = inv.po_number     || "";
+    document.getElementById("invoice_amount").value  = inv.invoice_amount|| "";
+    document.getElementById("invoice_date").value    = inv.invoice_date  || "";
+    document.getElementById("currency").value        = inv.currency      || "INR";
+    document.getElementById("line_items").value      = inv.line_items?.length
+      ? JSON.stringify(inv.line_items, null, 2) : "";
+    hideFormError();
+    hideResult();
+  }
+
+  // ── Form submit → POST /process-invoice ──────────────────────────
+  document.getElementById("invoice-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    hideFormError();
+    hideResult();
+    setLoading(true);
+
+    // Build payload
+    let lineItems = [];
+    const liRaw = document.getElementById("line_items").value.trim();
+    if (liRaw) {
+      try { lineItems = JSON.parse(liRaw); }
+      catch { showFormError("Line items must be valid JSON. Example:\n[{\"description\":\"Item\",\"quantity\":1,\"unit_price\":1000}]"); setLoading(false); return; }
+    }
+
+    const payload = {
+      invoice_id:     document.getElementById("invoice_id").value.trim(),
+      vendor_name:    document.getElementById("vendor_name").value.trim(),
+      vendor_gstin:   document.getElementById("vendor_gstin").value.trim(),
+      po_number:      document.getElementById("po_number").value.trim(),
+      invoice_amount: parseFloat(document.getElementById("invoice_amount").value),
+      invoice_date:   document.getElementById("invoice_date").value,
+      currency:       document.getElementById("currency").value,
+      line_items:     lineItems,
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/process-invoice`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        showFormError(`API Error ${res.status}: ${data.detail || JSON.stringify(data)}`);
+      } else {
+        showResult(data);
+      }
+    } catch (err) {
+      showFormError(`Network Error: ${err.message}\n\nMake sure the API server is running:\n  uvicorn app.api:api --reload --port 8000`);
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  // ── UI helpers ────────────────────────────────────────────────────
+  function setLoading(on) {
+    const btn     = document.getElementById("submit-btn");
+    const label   = document.getElementById("btn-label");
+    const spinner = document.getElementById("btn-spinner");
+    btn.disabled        = on;
+    label.textContent   = on ? "Processing …" : "🚀 Process Invoice";
+    spinner.style.display = on ? "block" : "none";
+  }
+
+  function showFormError(msg) {
+    const box = document.getElementById("form-error");
+    box.textContent = msg;
+    box.classList.add("shown");
+  }
+  function hideFormError() {
+    document.getElementById("form-error").classList.remove("shown");
+  }
+
+  function hideResult() {
+    document.getElementById("result-panel").classList.remove("visible");
+    document.getElementById("raw-json").classList.remove("shown");
+  }
+
+  function showResult(data) {
+    const panel = document.getElementById("result-panel");
+    panel.classList.add("visible");
+
+    // Badge
+    const statusKey = (data.status || "unknown").toLowerCase().replace(/ /g,"_");
+    const icons = {
+      completed:          "✅",
+      rejected:           "❌",
+      awaiting_approval:  "⏸",
+      manual_review:      "🔍",
+      unknown:            "❓",
+    };
+    const labels = {
+      completed:          "Completed",
+      rejected:           "Rejected",
+      awaiting_approval:  "Awaiting Approval",
+      manual_review:      "Manual Review",
+      unknown:            "Unknown",
+    };
+    document.getElementById("status-badge-wrap").innerHTML = `
+      <div class="status-badge badge-${statusKey}">
+        <span>${icons[statusKey] ?? "❓"}</span>
+        <span>${labels[statusKey] ?? data.status}</span>
+      </div>`;
+
+    // Fields
+    const confidence = Math.round((data.confidence ?? 0) * 100);
+    const rows = [
+      { key: "Invoice ID",    value: data.invoice_id   || "—" },
+      { key: "Next Action",   value: data.next_action  || "—" },
+      { key: "ERP Reference", value: data.erp_reference_id || "—" },
+      { key: "Rejection Reason", value: data.rejection_reason || "—" },
+      { key: "Reason",        value: data.reason        || "—", full: true },
+      { key: `Confidence — ${confidence}%`, value: "", confidence },
+    ];
+    document.getElementById("result-grid").innerHTML = rows.map(r => `
+      <div class="result-row${r.full ? ' full':''}">
+        <div class="key">${r.key}</div>
+        ${r.confidence !== undefined
+          ? `<div class="confidence-bar"><div class="confidence-fill" style="width:${r.confidence}%"></div></div>`
+          : `<div class="value">${r.value}</div>`}
+      </div>`).join("");
+
+    // Raw JSON
+    document.getElementById("raw-json").textContent = JSON.stringify(data, null, 2);
+  }
+
+  function toggleJson() {
+    const pre = document.getElementById("raw-json");
+    const btn = document.querySelector(".json-toggle");
+    if (pre.classList.toggle("shown")) {
+      btn.textContent = "{ } Hide raw JSON response";
+    } else {
+      btn.textContent = "{ } Show raw JSON response";
+    }
+  }
+</script>
+</body>
+</html>

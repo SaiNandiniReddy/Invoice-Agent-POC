@@ -29,6 +29,7 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -47,6 +48,17 @@ api = FastAPI(
         "Processes invoices through validation, approval (HITL), and ERP posting."
     ),
     version="1.0.0",
+)
+
+# ── CORS ─────────────────────────────────────────────────────────────────────
+# Allow any localhost origin so the HTML frontend can call the API during dev.
+# In production, replace ["*"] with your real frontend domain.
+api.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -239,6 +251,21 @@ def get_result(invoice_id: str) -> JSONResponse:
         )
     data = json.loads(result_file.read_text(encoding="utf-8"))
     return JSONResponse(content=data)
+
+
+@api.get("/invoices/samples")
+def get_sample_invoices() -> JSONResponse:
+    """
+    Return the 3 built-in sample invoice payloads so the frontend
+    can populate form fields without the user typing anything.
+    """
+    samples_dir = Path(__file__).parent.parent / "sample_data"
+    samples = []
+    for fname in ("invoice_happy.json", "invoice_approval.json", "invoice_failure.json"):
+        fpath = samples_dir / fname
+        if fpath.exists():
+            samples.append(json.loads(fpath.read_text(encoding="utf-8")))
+    return JSONResponse(content=samples)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
