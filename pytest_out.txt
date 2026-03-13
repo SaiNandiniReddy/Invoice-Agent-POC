@@ -1,0 +1,599 @@
+﻿...............................................s........................ [ 45%]
+.......F..............................................................FF [ 91%]
+FF.......F...F                                                           [100%]
+================================== FAILURES ===================================
+________ TestSDKToolWrappers.test_tool_request_approval_always_pending ________
+
+self = <tests.test_phase3.TestSDKToolWrappers object at 0x000002263C5C1A50>
+
+    def test_tool_request_approval_always_pending(self):
+        from app.agent import tool_request_approval
+>       result = tool_request_approval(
+            invoice_id="INV-001", amount=125000.0, reason="High value invoice"
+        )
+
+tests\test_phase3.py:298: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+invoice_id = 'INV-001', amount = 125000.0, reason = 'High value invoice'
+
+    def tool_request_approval(invoice_id: str, amount: float, reason: str) -> str:
+        """
+        Request human approval for a high-value invoice (amount > INR 1,00,000).
+        Only call when the invoice_amount exceeds the approval threshold.
+        Returns approval_status (pending in Phase 3), approver, and notes.
+        """
+>       result = request_approval(
+            ApprovalInput(invoice_id=invoice_id, amount=amount, reason=reason)
+        )
+
+app\agent.py:128: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+input = ApprovalInput(invoice_id='INV-001', amount=125000.0, reason='High value invoice')
+
+    def request_approval(input: ApprovalInput) -> ApprovalOutput:
+        """
+        Request human approval for a high-value invoice.
+    
+        Phase 4 behaviour ù HUMAN-IN-THE-LOOP (InterruptionRequirement pattern)
+        \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        First call (before human decides):
+          1. Saves "pending" state to workflow_store.
+          2. Raises PauseForApproval ù propagates out of Runner.run().
+          3. main.py catches it, shows an approval panel.
+          4. The human types "approve" or "reject".
+          5. main.py writes the decision to workflow_store and re-runs the agent.
+    
+        Second call (after human decides ù agent resumed with decision in message):
+          The agent reads get_invoice_summary() first, sees approval_status is
+          "approved" or "rejected", and returns accordingly without raising.
+    
+        Returns
+        \u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        ApprovalOutput with approval_status set to "approved" or "rejected".
+        """
+        # Check if a human decision has already been recorded (resume path)
+        store = workflow_store.get(input.invoice_id, {})
+        existing_status = store.get("approval_status", "")
+    
+        if existing_status in ("approved", "rejected"):
+            # Resume path: human has already decided ù return the stored result
+            return get_approval_result(
+                invoice_id=input.invoice_id,
+                amount=input.amount,
+                reason=input.reason,
+            )
+    
+        # First call path: save pending state and raise to pause execution
+        _update_store(
+            input.invoice_id,
+            {
+                "approval_requested": True,
+                "approval_status": "pending",
+                "approval_reason": input.reason,
+                "approval_amount": input.amount,
+            },
+        )
+    
+        # \u2500\u2500 PAUSE HERE \u2014 raise the HITL exception \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        # main.py catches this, collects human input, updates workflow_store,
+        # then re-runs the agent with the approval outcome in the message.
+>       raise PauseForApproval(
+            invoice_id=input.invoice_id,
+            amount=input.amount,
+            reason=input.reason,
+        )
+E       app.tools.PauseForApproval: HITL approval required for invoice 'INV-001' (INR 125,000.00): High value invoice
+
+app\tools.py:296: PauseForApproval
+_________ TestRequestApproval.test_approval_status_is_always_pending __________
+
+self = <tests.test_tools.TestRequestApproval object at 0x000002263C58F110>
+
+    def test_approval_status_is_always_pending(self):
+        """
+        In Day 2 the stub always returns 'pending' regardless of the amount.
+        This confirms the stub behaviour before Day 4's real interrupt().
+        """
+        inp = ApprovalInput(
+            invoice_id="INV-001",
+            amount=125_000.0,
+            reason="Amount exceeds approval threshold",
+        )
+    
+>       result = request_approval(inp)
+                 ^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_tools.py:322: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+input = ApprovalInput(invoice_id='INV-001', amount=125000.0, reason='Amount exceeds approval threshold')
+
+    def request_approval(input: ApprovalInput) -> ApprovalOutput:
+        """
+        Request human approval for a high-value invoice.
+    
+        Phase 4 behaviour ù HUMAN-IN-THE-LOOP (InterruptionRequirement pattern)
+        \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        First call (before human decides):
+          1. Saves "pending" state to workflow_store.
+          2. Raises PauseForApproval ù propagates out of Runner.run().
+          3. main.py catches it, shows an approval panel.
+          4. The human types "approve" or "reject".
+          5. main.py writes the decision to workflow_store and re-runs the agent.
+    
+        Second call (after human decides ù agent resumed with decision in message):
+          The agent reads get_invoice_summary() first, sees approval_status is
+          "approved" or "rejected", and returns accordingly without raising.
+    
+        Returns
+        \u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        ApprovalOutput with approval_status set to "approved" or "rejected".
+        """
+        # Check if a human decision has already been recorded (resume path)
+        store = workflow_store.get(input.invoice_id, {})
+        existing_status = store.get("approval_status", "")
+    
+        if existing_status in ("approved", "rejected"):
+            # Resume path: human has already decided ù return the stored result
+            return get_approval_result(
+                invoice_id=input.invoice_id,
+                amount=input.amount,
+                reason=input.reason,
+            )
+    
+        # First call path: save pending state and raise to pause execution
+        _update_store(
+            input.invoice_id,
+            {
+                "approval_requested": True,
+                "approval_status": "pending",
+                "approval_reason": input.reason,
+                "approval_amount": input.amount,
+            },
+        )
+    
+        # \u2500\u2500 PAUSE HERE \u2014 raise the HITL exception \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        # main.py catches this, collects human input, updates workflow_store,
+        # then re-runs the agent with the approval outcome in the message.
+>       raise PauseForApproval(
+            invoice_id=input.invoice_id,
+            amount=input.amount,
+            reason=input.reason,
+        )
+E       app.tools.PauseForApproval: HITL approval required for invoice 'INV-001' (INR 125,000.00): Amount exceeds approval threshold
+
+app\tools.py:296: PauseForApproval
+______________ TestRequestApproval.test_approver_is_none_in_stub ______________
+
+self = <tests.test_tools.TestRequestApproval object at 0x000002263C58F250>
+
+    def test_approver_is_none_in_stub(self):
+        """
+        Since no human has made a decision yet (stub only),
+        approver should be None.
+        """
+        inp = ApprovalInput(invoice_id="INV-002", amount=200_000.0, reason="High value invoice")
+    
+>       result = request_approval(inp)
+                 ^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_tools.py:333: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+input = ApprovalInput(invoice_id='INV-002', amount=200000.0, reason='High value invoice')
+
+    def request_approval(input: ApprovalInput) -> ApprovalOutput:
+        """
+        Request human approval for a high-value invoice.
+    
+        Phase 4 behaviour ù HUMAN-IN-THE-LOOP (InterruptionRequirement pattern)
+        \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        First call (before human decides):
+          1. Saves "pending" state to workflow_store.
+          2. Raises PauseForApproval ù propagates out of Runner.run().
+          3. main.py catches it, shows an approval panel.
+          4. The human types "approve" or "reject".
+          5. main.py writes the decision to workflow_store and re-runs the agent.
+    
+        Second call (after human decides ù agent resumed with decision in message):
+          The agent reads get_invoice_summary() first, sees approval_status is
+          "approved" or "rejected", and returns accordingly without raising.
+    
+        Returns
+        \u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        ApprovalOutput with approval_status set to "approved" or "rejected".
+        """
+        # Check if a human decision has already been recorded (resume path)
+        store = workflow_store.get(input.invoice_id, {})
+        existing_status = store.get("approval_status", "")
+    
+        if existing_status in ("approved", "rejected"):
+            # Resume path: human has already decided ù return the stored result
+            return get_approval_result(
+                invoice_id=input.invoice_id,
+                amount=input.amount,
+                reason=input.reason,
+            )
+    
+        # First call path: save pending state and raise to pause execution
+        _update_store(
+            input.invoice_id,
+            {
+                "approval_requested": True,
+                "approval_status": "pending",
+                "approval_reason": input.reason,
+                "approval_amount": input.amount,
+            },
+        )
+    
+        # \u2500\u2500 PAUSE HERE \u2014 raise the HITL exception \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        # main.py catches this, collects human input, updates workflow_store,
+        # then re-runs the agent with the approval outcome in the message.
+>       raise PauseForApproval(
+            invoice_id=input.invoice_id,
+            amount=input.amount,
+            reason=input.reason,
+        )
+E       app.tools.PauseForApproval: HITL approval required for invoice 'INV-002' (INR 200,000.00): High value invoice
+
+app\tools.py:296: PauseForApproval
+_____________ TestRequestApproval.test_notes_contains_invoice_id ______________
+
+self = <tests.test_tools.TestRequestApproval object at 0x000002263C6448A0>
+
+    def test_notes_contains_invoice_id(self):
+        """The notes field should reference the invoice ID for traceability."""
+        inp = ApprovalInput(invoice_id="INV-TRACE", amount=50_000.0, reason="Routine approval")
+    
+>       result = request_approval(inp)
+                 ^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_tools.py:341: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+input = ApprovalInput(invoice_id='INV-TRACE', amount=50000.0, reason='Routine approval')
+
+    def request_approval(input: ApprovalInput) -> ApprovalOutput:
+        """
+        Request human approval for a high-value invoice.
+    
+        Phase 4 behaviour ù HUMAN-IN-THE-LOOP (InterruptionRequirement pattern)
+        \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        First call (before human decides):
+          1. Saves "pending" state to workflow_store.
+          2. Raises PauseForApproval ù propagates out of Runner.run().
+          3. main.py catches it, shows an approval panel.
+          4. The human types "approve" or "reject".
+          5. main.py writes the decision to workflow_store and re-runs the agent.
+    
+        Second call (after human decides ù agent resumed with decision in message):
+          The agent reads get_invoice_summary() first, sees approval_status is
+          "approved" or "rejected", and returns accordingly without raising.
+    
+        Returns
+        \u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        ApprovalOutput with approval_status set to "approved" or "rejected".
+        """
+        # Check if a human decision has already been recorded (resume path)
+        store = workflow_store.get(input.invoice_id, {})
+        existing_status = store.get("approval_status", "")
+    
+        if existing_status in ("approved", "rejected"):
+            # Resume path: human has already decided ù return the stored result
+            return get_approval_result(
+                invoice_id=input.invoice_id,
+                amount=input.amount,
+                reason=input.reason,
+            )
+    
+        # First call path: save pending state and raise to pause execution
+        _update_store(
+            input.invoice_id,
+            {
+                "approval_requested": True,
+                "approval_status": "pending",
+                "approval_reason": input.reason,
+                "approval_amount": input.amount,
+            },
+        )
+    
+        # \u2500\u2500 PAUSE HERE \u2014 raise the HITL exception \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        # main.py catches this, collects human input, updates workflow_store,
+        # then re-runs the agent with the approval outcome in the message.
+>       raise PauseForApproval(
+            invoice_id=input.invoice_id,
+            amount=input.amount,
+            reason=input.reason,
+        )
+E       app.tools.PauseForApproval: HITL approval required for invoice 'INV-TRACE' (INR 50,000.00): Routine approval
+
+app\tools.py:296: PauseForApproval
+____________ TestRequestApproval.test_approval_stored_in_workflow _____________
+
+self = <tests.test_tools.TestRequestApproval object at 0x000002263C6449D0>
+
+    def test_approval_stored_in_workflow(self):
+        """
+        After calling request_approval, the workflow_store should record
+        that approval was requested for this invoice.
+        """
+        inp = ApprovalInput(invoice_id="INV-STORE", amount=99_000.0, reason="Test")
+    
+>       request_approval(inp)
+
+tests\test_tools.py:352: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+input = ApprovalInput(invoice_id='INV-STORE', amount=99000.0, reason='Test')
+
+    def request_approval(input: ApprovalInput) -> ApprovalOutput:
+        """
+        Request human approval for a high-value invoice.
+    
+        Phase 4 behaviour ù HUMAN-IN-THE-LOOP (InterruptionRequirement pattern)
+        \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        First call (before human decides):
+          1. Saves "pending" state to workflow_store.
+          2. Raises PauseForApproval ù propagates out of Runner.run().
+          3. main.py catches it, shows an approval panel.
+          4. The human types "approve" or "reject".
+          5. main.py writes the decision to workflow_store and re-runs the agent.
+    
+        Second call (after human decides ù agent resumed with decision in message):
+          The agent reads get_invoice_summary() first, sees approval_status is
+          "approved" or "rejected", and returns accordingly without raising.
+    
+        Returns
+        \u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        ApprovalOutput with approval_status set to "approved" or "rejected".
+        """
+        # Check if a human decision has already been recorded (resume path)
+        store = workflow_store.get(input.invoice_id, {})
+        existing_status = store.get("approval_status", "")
+    
+        if existing_status in ("approved", "rejected"):
+            # Resume path: human has already decided ù return the stored result
+            return get_approval_result(
+                invoice_id=input.invoice_id,
+                amount=input.amount,
+                reason=input.reason,
+            )
+    
+        # First call path: save pending state and raise to pause execution
+        _update_store(
+            input.invoice_id,
+            {
+                "approval_requested": True,
+                "approval_status": "pending",
+                "approval_reason": input.reason,
+                "approval_amount": input.amount,
+            },
+        )
+    
+        # \u2500\u2500 PAUSE HERE \u2014 raise the HITL exception \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        # main.py catches this, collects human input, updates workflow_store,
+        # then re-runs the agent with the approval outcome in the message.
+>       raise PauseForApproval(
+            invoice_id=input.invoice_id,
+            amount=input.amount,
+            reason=input.reason,
+        )
+E       app.tools.PauseForApproval: HITL approval required for invoice 'INV-STORE' (INR 99,000.00): Test
+
+app\tools.py:296: PauseForApproval
+__________ TestGetInvoiceSummary.test_summary_after_approval_request __________
+
+self = <tests.test_tools.TestGetInvoiceSummary object at 0x000002263C644D60>
+
+    def test_summary_after_approval_request(self):
+        """
+        After request_approval is called, status should be 'awaiting_approval'
+        and approval_status should be 'pending'.
+        """
+>       request_approval(ApprovalInput(
+            invoice_id="INV-APP",
+            amount=200_000.0,
+            reason="Test",
+        ))
+
+tests\test_tools.py:488: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+input = ApprovalInput(invoice_id='INV-APP', amount=200000.0, reason='Test')
+
+    def request_approval(input: ApprovalInput) -> ApprovalOutput:
+        """
+        Request human approval for a high-value invoice.
+    
+        Phase 4 behaviour ù HUMAN-IN-THE-LOOP (InterruptionRequirement pattern)
+        \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        First call (before human decides):
+          1. Saves "pending" state to workflow_store.
+          2. Raises PauseForApproval ù propagates out of Runner.run().
+          3. main.py catches it, shows an approval panel.
+          4. The human types "approve" or "reject".
+          5. main.py writes the decision to workflow_store and re-runs the agent.
+    
+        Second call (after human decides ù agent resumed with decision in message):
+          The agent reads get_invoice_summary() first, sees approval_status is
+          "approved" or "rejected", and returns accordingly without raising.
+    
+        Returns
+        \u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        ApprovalOutput with approval_status set to "approved" or "rejected".
+        """
+        # Check if a human decision has already been recorded (resume path)
+        store = workflow_store.get(input.invoice_id, {})
+        existing_status = store.get("approval_status", "")
+    
+        if existing_status in ("approved", "rejected"):
+            # Resume path: human has already decided ù return the stored result
+            return get_approval_result(
+                invoice_id=input.invoice_id,
+                amount=input.amount,
+                reason=input.reason,
+            )
+    
+        # First call path: save pending state and raise to pause execution
+        _update_store(
+            input.invoice_id,
+            {
+                "approval_requested": True,
+                "approval_status": "pending",
+                "approval_reason": input.reason,
+                "approval_amount": input.amount,
+            },
+        )
+    
+        # \u2500\u2500 PAUSE HERE \u2014 raise the HITL exception \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        # main.py catches this, collects human input, updates workflow_store,
+        # then re-runs the agent with the approval outcome in the message.
+>       raise PauseForApproval(
+            invoice_id=input.invoice_id,
+            amount=input.amount,
+            reason=input.reason,
+        )
+E       app.tools.PauseForApproval: HITL approval required for invoice 'INV-APP' (INR 200,000.00): Test
+
+app\tools.py:296: PauseForApproval
+________ TestWorkflowIntegration.test_approval_path_high_value_invoice ________
+
+self = <tests.test_tools.TestWorkflowIntegration object at 0x000002263C644FC0>
+
+    def test_approval_path_high_value_invoice(self):
+        """
+        Pipeline for invoice_approval.json ù Tech Supplies Ltd, INR 125,000.
+        Amount > 100,000 threshold \u2192 request_approval should be called.
+        """
+        INVOICE_ID = "INV-2026-002"
+    
+        # Validate first (all pass)
+        validate_vendor(ValidateVendorInput(
+            invoice_id=INVOICE_ID,
+            vendor_name="Tech Supplies Ltd",
+            vendor_gstin="29ABCDE1234F1Z5",
+        ))
+        validate_po(ValidatePOInput(invoice_id=INVOICE_ID, po_number="PO-45678"))
+        check_duplicate(CheckDuplicateInput(invoice_id=INVOICE_ID))
+    
+        # High value ù request approval
+>       approval_result = request_approval(ApprovalInput(
+            invoice_id=INVOICE_ID,
+            amount=125_000.0,
+            reason="Invoice amount exceeds INR 1,00,000 threshold",
+        ))
+
+tests\test_tools.py:609: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+input = ApprovalInput(invoice_id='INV-2026-002', amount=125000.0, reason='Invoice amount exceeds INR 1,00,000 threshold')
+
+    def request_approval(input: ApprovalInput) -> ApprovalOutput:
+        """
+        Request human approval for a high-value invoice.
+    
+        Phase 4 behaviour ù HUMAN-IN-THE-LOOP (InterruptionRequirement pattern)
+        \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        First call (before human decides):
+          1. Saves "pending" state to workflow_store.
+          2. Raises PauseForApproval ù propagates out of Runner.run().
+          3. main.py catches it, shows an approval panel.
+          4. The human types "approve" or "reject".
+          5. main.py writes the decision to workflow_store and re-runs the agent.
+    
+        Second call (after human decides ù agent resumed with decision in message):
+          The agent reads get_invoice_summary() first, sees approval_status is
+          "approved" or "rejected", and returns accordingly without raising.
+    
+        Returns
+        \u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        ApprovalOutput with approval_status set to "approved" or "rejected".
+        """
+        # Check if a human decision has already been recorded (resume path)
+        store = workflow_store.get(input.invoice_id, {})
+        existing_status = store.get("approval_status", "")
+    
+        if existing_status in ("approved", "rejected"):
+            # Resume path: human has already decided ù return the stored result
+            return get_approval_result(
+                invoice_id=input.invoice_id,
+                amount=input.amount,
+                reason=input.reason,
+            )
+    
+        # First call path: save pending state and raise to pause execution
+        _update_store(
+            input.invoice_id,
+            {
+                "approval_requested": True,
+                "approval_status": "pending",
+                "approval_reason": input.reason,
+                "approval_amount": input.amount,
+            },
+        )
+    
+        # \u2500\u2500 PAUSE HERE \u2014 raise the HITL exception \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        # main.py catches this, collects human input, updates workflow_store,
+        # then re-runs the agent with the approval outcome in the message.
+>       raise PauseForApproval(
+            invoice_id=input.invoice_id,
+            amount=input.amount,
+            reason=input.reason,
+        )
+E       app.tools.PauseForApproval: HITL approval required for invoice 'INV-2026-002' (INR 125,000.00): Invoice amount exceeds INR 1,00,000 threshold
+
+app\tools.py:296: PauseForApproval
+============================== warnings summary ===============================
+tests/test_phase1.py: 6 warnings
+tests/test_phase3.py: 17 warnings
+  C:\invoice-agent-poc\Invoice-Agent-POC\app\state.py:113: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    started_at:      str                = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+tests/test_phase1.py: 4 warnings
+tests/test_phase3.py: 16 warnings
+  C:\invoice-agent-poc\Invoice-Agent-POC\app\state.py:93: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp:  str              = Field(default_factory=lambda: datetime.utcnow().isoformat())
+
+tests/test_phase1.py::TestWorkflowState::test_complete_sets_status
+tests/test_phase3.py::TestApplyDecisionToState::test_complete_sets_completed_status
+tests/test_phase3.py::TestApplyDecisionToState::test_complete_sets_completed_at_timestamp
+tests/test_phase3.py::TestApplyDecisionToState::test_complete_reads_erp_ref_from_store
+tests/test_phase3.py::TestApplyDecisionToState::test_every_decision_adds_one_action_record
+tests/test_phase3.py::TestApplyDecisionToState::test_action_record_tool_name_is_agent_decision
+tests/test_phase3.py::TestMockedRunnerIntegration::test_happy_path_state_is_completed
+tests/test_phase3.py::TestMockedRunnerIntegration::test_result_json_is_valid_and_saved
+  C:\invoice-agent-poc\Invoice-Agent-POC\app\state.py:140: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self.completed_at = datetime.utcnow().isoformat()
+
+tests/test_phase1.py::TestWorkflowState::test_reject_sets_status_and_reason
+tests/test_phase3.py::TestApplyDecisionToState::test_rejected_sets_rejected_status
+tests/test_phase3.py::TestApplyDecisionToState::test_rejected_stores_rejection_reason
+tests/test_phase3.py::TestApplyDecisionToState::test_every_decision_adds_one_action_record
+tests/test_phase3.py::TestMockedRunnerIntegration::test_failure_path_unknown_vendor_is_rejected
+  C:\invoice-agent-poc\Invoice-Agent-POC\app\state.py:147: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self.completed_at = datetime.utcnow().isoformat()
+
+tests/test_phase1.py::TestWorkflowState::test_escalate_sets_manual_review
+tests/test_phase3.py::TestApplyDecisionToState::test_manual_review_sets_correct_status
+tests/test_phase3.py::TestApplyDecisionToState::test_every_decision_adds_one_action_record
+  C:\invoice-agent-poc\Invoice-Agent-POC\app\state.py:153: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self.completed_at = datetime.utcnow().isoformat()
+
+tests/test_phase3.py: 2 warnings
+tests/test_phase4.py: 1 warning
+tests/test_tools.py: 7 warnings
+  C:\invoice-agent-poc\Invoice-Agent-POC\app\tools.py:381: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp = datetime.utcnow().isoformat()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_phase3.py::TestSDKToolWrappers::test_tool_request_approval_always_pending
+FAILED tests/test_tools.py::TestRequestApproval::test_approval_status_is_always_pending
+FAILED tests/test_tools.py::TestRequestApproval::test_approver_is_none_in_stub
+FAILED tests/test_tools.py::TestRequestApproval::test_notes_contains_invoice_id
+FAILED tests/test_tools.py::TestRequestApproval::test_approval_stored_in_workflow
+FAILED tests/test_tools.py::TestGetInvoiceSummary::test_summary_after_approval_request
+FAILED tests/test_tools.py::TestWorkflowIntegration::test_approval_path_high_value_invoice
+7 failed, 150 passed, 1 skipped, 69 warnings in 2.87s

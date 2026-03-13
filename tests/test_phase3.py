@@ -294,11 +294,19 @@ class TestSDKToolWrappers:
         assert "is_duplicate=True" in result
 
     def test_tool_request_approval_always_pending(self):
+        """
+        In Phase 4, tool_request_approval raises PauseForApproval on the
+        first call. After the raise, workflow_store[invoice_id]['approval_status']
+        is already set to 'pending'.
+        """
         from app.agent import tool_request_approval
-        result = tool_request_approval(
-            invoice_id="INV-001", amount=125000.0, reason="High value invoice"
-        )
-        assert "approval_status=pending" in result
+        from app.tools import PauseForApproval
+        with pytest.raises(PauseForApproval):
+            tool_request_approval(
+                invoice_id="INV-001", amount=125000.0, reason="High value invoice"
+            )
+        # Side-effect: approval_status stored before exception propagated
+        assert tools_module.workflow_store["INV-001"]["approval_status"] == "pending"
 
     def test_tool_post_to_erp_success(self):
         from app.agent import tool_post_to_erp

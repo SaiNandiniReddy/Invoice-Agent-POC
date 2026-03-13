@@ -40,21 +40,13 @@ This makes each test self-documenting and easy to read.
 """
 
 import pytest
-
-# ── Reset shared state before every test ─────────────────────────────────────
-# The tools share two pieces of state between calls:
-#   1. app.config.PROCESSED_INVOICES  (set of already-processed invoice IDs)
-#   2. app.tools.workflow_store        (dict of invoice snapshots)
-#
-# We MUST clear them before each test so tests do not affect each other.
-# pytest's autouse=True fixture runs this automatically for every test.
-
 import app.config as config
 import app.tools as tools_module
 from app.tools import (
     ApprovalInput,
     CheckDuplicateInput,
     ERPPostInput,
+    PauseForApproval,
     ValidatePOInput,
     ValidateVendorInput,
     WorkflowSummaryInput,
@@ -301,46 +293,46 @@ class TestCheckDuplicate:
         assert result.is_duplicate is True
 
 
-# =============================================================================
-# TestRequestApproval — tests for the request_approval stub
-# =============================================================================
 
 class TestRequestApproval:
-    """Tests for request_approval — Day 2 stub behaviour."""
+    """
+    Tests for request_approval — Phase 4 HITL behaviour.
 
-    def test_approval_status_is_always_pending(self):
+    In Phase 4, request_approval() always raises PauseForApproval on the
+    first call (when no prior human decision is stored). The tests below
+    verify both the exception itself and the workflow_store side-effects.
+    """
+
+    def test_approval_raises_pause_for_approval(self):
         """
-        In Day 2 the stub always returns 'pending' regardless of the amount.
-        This confirms the stub behaviour before Day 4's real interrupt().
+        Calling request_approval() without a prior human decision must
+        raise PauseForApproval so the HITL loop can intercept it.
         """
         inp = ApprovalInput(
             invoice_id="INV-001",
             amount=125_000.0,
             reason="Amount exceeds approval threshold",
         )
+        with pytest.raises(PauseForApproval):
+            request_approval(inp)
 
-        result = request_approval(inp)
-
-        assert result.approval_status == "pending"
-
-    def test_approver_is_none_in_stub(self):
+    def test_approval_stores_pending_in_workflow_store(self):
         """
-        Since no human has made a decision yet (stub only),
-        approver should be None.
+        Even though PauseForApproval is raised, the workflow_store must
+        already have been updated to approval_status='pending' before
+        the exception propagates.
         """
         inp = ApprovalInput(invoice_id="INV-002", amount=200_000.0, reason="High value invoice")
+        with pytest.raises(PauseForApproval):
+            request_approval(inp)
+        assert tools_module.workflow_store["INV-002"]["approval_status"] == "pending"
 
-        result = request_approval(inp)
-
-        assert result.approver is None
-
-    def test_notes_contains_invoice_id(self):
-        """The notes field should reference the invoice ID for traceability."""
+    def test_approval_stores_approval_requested_flag(self):
+        """The approval_requested flag must be True after the first call."""
         inp = ApprovalInput(invoice_id="INV-TRACE", amount=50_000.0, reason="Routine approval")
-
-        result = request_approval(inp)
-
-        assert "INV-TRACE" in result.notes
+        with pytest.raises(PauseForApproval):
+            request_approval(inp)
+        assert tools_module.workflow_store["INV-TRACE"]["approval_requested"] is True
 
     def test_approval_stored_in_workflow(self):
         """
@@ -348,9 +340,8 @@ class TestRequestApproval:
         that approval was requested for this invoice.
         """
         inp = ApprovalInput(invoice_id="INV-STORE", amount=99_000.0, reason="Test")
-
-        request_approval(inp)
-
+        with pytest.raises(PauseForApproval):
+            request_approval(inp)
         assert tools_module.workflow_store["INV-STORE"]["approval_requested"] is True
         assert tools_module.workflow_store["INV-STORE"]["approval_status"] == "pending"
 
@@ -482,14 +473,16 @@ class TestGetInvoiceSummary:
 
     def test_summary_after_approval_request(self):
         """
-        After request_approval is called, status should be 'awaiting_approval'
-        and approval_status should be 'pending'.
+        After request_approval raises PauseForApproval, the workflow_store
+        is already updated with approval_status='pending'. get_invoice_summary
+        should then return status='awaiting_approval'.
         """
-        request_approval(ApprovalInput(
-            invoice_id="INV-APP",
-            amount=200_000.0,
-            reason="Test",
-        ))
+        with pytest.raises(PauseForApproval):
+            request_approval(ApprovalInput(
+                invoice_id="INV-APP",
+                amount=200_000.0,
+                reason="Test",
+            ))
 
         result = get_invoice_summary(WorkflowSummaryInput(invoice_id="INV-APP"))
 
@@ -592,7 +585,7 @@ class TestWorkflowIntegration:
     def test_approval_path_high_value_invoice(self):
         """
         Pipeline for invoice_approval.json — Tech Supplies Ltd, INR 125,000.
-        Amount > 100,000 threshold → request_approval should be called.
+        Amount > 100,000 threshold → request_approval raises PauseForApproval.
         """
         INVOICE_ID = "INV-2026-002"
 
@@ -605,14 +598,20 @@ class TestWorkflowIntegration:
         validate_po(ValidatePOInput(invoice_id=INVOICE_ID, po_number="PO-45678"))
         check_duplicate(CheckDuplicateInput(invoice_id=INVOICE_ID))
 
-        # High value — request approval
-        approval_result = request_approval(ApprovalInput(
-            invoice_id=INVOICE_ID,
-            amount=125_000.0,
-            reason="Invoice amount exceeds INR 1,00,000 threshold",
-        ))
+        # High value — request_approval pauses with PauseForApproval
+        with pytest.raises(PauseForApproval) as exc_info:
+            request_approval(ApprovalInput(
+                invoice_id=INVOICE_ID,
+                amount=125_000.0,
+                reason="Invoice amount exceeds INR 1,00,000 threshold",
+            ))
 
-        assert approval_result.approval_status == "pending"
+        # The exception carries the invoice details
+        assert exc_info.value.invoice_id == INVOICE_ID
+        assert exc_info.value.amount == 125_000.0
+
+        # workflow_store is updated before the exception propagates
+        assert tools_module.workflow_store[INVOICE_ID]["approval_status"] == "pending"
 
         # Summary should show awaiting_approval (ERP not posted yet)
         summary = get_invoice_summary(WorkflowSummaryInput(invoice_id=INVOICE_ID))

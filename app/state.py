@@ -11,7 +11,7 @@ Invoice Workflow Agent POC:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -90,7 +90,7 @@ class ActionRecord(BaseModel):
     Used to build the auditable action history log.
     """
     tool_name:  str              = Field(..., description="Name of the tool that was called")
-    timestamp:  str              = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp:  str              = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     input_data: dict[str, Any]   = Field(default_factory=dict)
     output_data: dict[str, Any]  = Field(default_factory=dict)
     success:    bool             = True
@@ -110,7 +110,7 @@ class WorkflowState(BaseModel):
     approver:        str | None         = None
     approval_notes:  str | None         = None
     action_history:  list[ActionRecord] = Field(default_factory=list)
-    started_at:      str                = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    started_at:      str                = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     completed_at:    str | None         = None
     rejection_reason: str | None        = None
     erp_reference_id: str | None        = None
@@ -137,20 +137,21 @@ class WorkflowState(BaseModel):
     def complete(self, erp_reference_id: str | None = None) -> None:
         """Mark the workflow as successfully completed."""
         self.status = WorkflowStatus.COMPLETED
-        self.completed_at = datetime.utcnow().isoformat()
+        self.completed_at = datetime.now(timezone.utc).isoformat()
         self.erp_reference_id = erp_reference_id
 
     def reject(self, reason: str) -> None:
         """Mark the workflow as rejected with a clear reason."""
         self.status = WorkflowStatus.REJECTED
         self.rejection_reason = reason
-        self.completed_at = datetime.utcnow().isoformat()
+        self.completed_at = datetime.now(timezone.utc).isoformat()
 
     def escalate(self, reason: str) -> None:
         """Escalate to manual review."""
         self.status = WorkflowStatus.MANUAL_REVIEW
         self.rejection_reason = reason
-        self.completed_at = datetime.utcnow().isoformat()
+        self.completed_at = datetime.now(timezone.utc).isoformat()
+
 
 
 # ── Agent Structured Output Schema ───────────────────────────────────────────

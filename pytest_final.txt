@@ -1,0 +1,12 @@
+﻿...............................................s........................ [ 45%]
+........................................................................ [ 91%]
+..............                                                           [100%]
+============================== warnings summary ===============================
+tests/test_phase3.py: 2 warnings
+tests/test_phase4.py: 1 warning
+tests/test_tools.py: 7 warnings
+  C:\invoice-agent-poc\Invoice-Agent-POC\app\tools.py:381: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp = datetime.utcnow().isoformat()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+157 passed, 1 skipped, 10 warnings in 2.61s
